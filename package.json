@@ -10,7 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "jquery": "^2.1.1",
-    "jsdom": "^1.3.2",
+    "mkpath": "^0.1.0",
     "phantom": "^0.7.0",
     "weak": "^0.3.3"
   }
