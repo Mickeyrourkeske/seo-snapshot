@@ -10,6 +10,8 @@ var mkpath = require('mkpath');
 
 
 var discardLink = /(\.pdf)|(feed)|(\.jpg)|(\.jpeg)|(\.png)|(#\w+)/gi;
+var siteTimeout = 5000;
+
 
 /**
  * Creates a Snapshot object to generate html and a sitemap
@@ -27,6 +29,7 @@ function Snapshot(uri, snapshotFolder) {
     this.snapshotFolder = snapshotFolder;
 
     this.linkQueue = {};
+
 }
 
 /**
@@ -34,11 +37,17 @@ function Snapshot(uri, snapshotFolder) {
  * @param cb when generate is done
  */
 Snapshot.prototype.generate = function (cb) {
-
     console.log('Get page: ' + this.uri);
     this.recursiveQueue(this.uri, function () {
         /* calculate sitemap */
         console.log('calculating sitemap...');
+
+        fs.writeFile(this.snapshotFolder + '/debug.json', JSON.stringify(this.linkQueue, null, 2), function (err) {
+            if (err) {
+                debug(err);
+                cb(err);
+            }
+        });
 
         /* remove all links with redirects and add count to redirect location */
         for (var link in this.linkQueue) {
@@ -65,7 +74,7 @@ Snapshot.prototype.generate = function (cb) {
         sitemap += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
         for (var link in this.linkQueue) {
             if (this.linkQueue.hasOwnProperty(link)) {
-                var priority = this.linkQueue / overallCount;
+                var priority = this.linkQueue[link].count / overallCount;
                 sitemap += '  <url>\n';
                 sitemap += '    <loc>' + link + '</loc>\n';
                 sitemap += '    <lastmod>' + time + '</lastmod>\n';
@@ -79,8 +88,7 @@ Snapshot.prototype.generate = function (cb) {
 
         fs.writeFile(this.snapshotFolder + '/sitemap.xml', sitemap, function (err) {
             if (err) {
-                //TODO
-                console.log(err);
+                debug(err);
                 cb(err);
             }
             else {
@@ -104,7 +112,7 @@ Snapshot.prototype.recursiveQueue = function (uri, cb) {
     this.generateSinglePage(uri, function (err, result) {
         /* add links from result to linkQueue and visit the next one */
         if (err) {
-            console.log(err);
+            debug(err);
         }
         else {
             /* add new links and increment them */
@@ -148,9 +156,6 @@ Snapshot.prototype.recursiveQueue = function (uri, cb) {
             }
 
 
-            console.log(JSON.stringify(this.linkQueue, null, 2));
-
-
         }
 
         /* get the next not visited page and call this function recursively */
@@ -185,8 +190,7 @@ Snapshot.prototype.recursiveQueue = function (uri, cb) {
 Snapshot.prototype.generateSinglePage = function (uri, cb) {
     generateHtmlAndGetLinks(uri, function (err, result) {
         if (err) {
-            //TODO
-            console.log(err);
+            debug(err);
             cb(err);
             return;
         }
@@ -202,14 +206,12 @@ Snapshot.prototype.generateSinglePage = function (uri, cb) {
 
         mkpath(path.dirname(file), function (err) {
             if (err) {
-                //TODO
-                console.log(err);
+                debug(err);
             }
             else {
                 fs.writeFile(file, result.content, function (err) {
                     if (err) {
-                        //TODO
-                        console.log(err);
+                        debug(err);
                     }
                     else {
                         console.log('Saved ' + file);
@@ -225,7 +227,7 @@ Snapshot.prototype.generateSinglePage = function (uri, cb) {
 
 
 function generateHtmlAndGetLinks(uri, cb) {
-    phantom.create(function (ph) {
+    phantom.create({parameters: {'ignore-ssl-errors': 'true'}}, function (ph) {
         ph.createPage(function (page) {
             page.set('viewportSize', {
                 width: 1280,
@@ -237,7 +239,7 @@ function generateHtmlAndGetLinks(uri, cb) {
                     return;
                 }
 
-                page.injectJs('jquery', function () {
+                page.includeJs('http://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js', function () {
 
                     setTimeout(function () {
                         page.evaluate(function () { // Sandboxed execution
@@ -278,11 +280,27 @@ function generateHtmlAndGetLinks(uri, cb) {
                                 cb(err);
                             }
                         });
-                    }, 5000);
+                    }, siteTimeout);
                 });
             });
         });
     });
+}
+
+
+
+function debug(out) {
+    if(out instanceof Error) {
+        var err = out;
+        out += err.stack;
+    }
+    out = (new Date()).toISOString() + ': ' + out + '\n';
+    console.log('Debug: ' + out);
+    fs.appendFile('debug', out, function (err) {
+        if(err) {
+            console.log(err);
+        }
+    })
 }
 
 
