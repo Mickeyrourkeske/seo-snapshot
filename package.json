@@ -1,6 +1,6 @@
 {
   "name": "seo-snapshot",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Generates html snapshots and a xml sitemap of a website",
   "main": "./src/main.js",
   "bin": {
@@ -9,6 +9,7 @@
   "author": "Frederic Robra",
   "license": "GPL",
   "dependencies": {
+    "commander": "^2.5.0",
     "mkpath": "^0.1.0",
     "phantom": "^0.7.0",
     "weak": "^0.3.3"
